@@ -1,0 +1,263 @@
+
+  // Funciones de negocio (asignaciones, etc.)
+ 
+  const asignarERAaVehiculo = async (vehiculoId, eraId) => {
+    const vehiculo = vehiculosCol.data.find((v) => v.id === vehiculoId);
+    if (!vehiculo) return;
+    const erasActuales = vehiculo.erasAsignadas || [];
+    if (erasActuales.includes(eraId)) return alert('Esta ERA ya está asignada');
+    await vehiculosCol.actualizar(vehiculoId, {
+      erasAsignadas: [...erasActuales, eraId],
+    });
+    await erasCol.actualizar(eraId, { vehiculoAsignado: vehiculoId });
+    alert('✅ ERA asignada');
+  };
+
+  const desasignarERAdeVehiculo = async (vehiculoId, eraId) => {
+    const vehiculo = vehiculosCol.data.find((v) => v.id === vehiculoId);
+    if (!vehiculo) return;
+    await vehiculosCol.actualizar(vehiculoId, {
+      erasAsignadas: (vehiculo.erasAsignadas || []).filter(
+        (id) => id !== eraId
+      ),
+    });
+    await erasCol.actualizar(eraId, { vehiculoAsignado: '' });
+  };
+
+  const asignarEquipoAVehiculo = async (vehiculoId, equipoId) => {
+    const vehiculo = vehiculosCol.data.find((v) => v.id === vehiculoId);
+    if (!vehiculo) return;
+    const equiposActuales = vehiculo.equiposAsignados || [];
+    if (equiposActuales.includes(equipoId))
+      return alert('Este equipo ya está asignado');
+    await vehiculosCol.actualizar(vehiculoId, {
+      equiposAsignados: [...equiposActuales, equipoId],
+    });
+    await equiposCol.actualizar(equipoId, { vehiculoAsignado: vehiculoId });
+    alert('✅ Equipo asignado');
+  };
+
+  const desasignarEquipoDeVehiculo = async (vehiculoId, equipoId) => {
+    const vehiculo = vehiculosCol.data.find((v) => v.id === vehiculoId);
+    if (!vehiculo) return;
+    await vehiculosCol.actualizar(vehiculoId, {
+      equiposAsignados: (vehiculo.equiposAsignados || []).filter(
+        (id) => id !== equipoId
+      ),
+    });
+    await equiposCol.actualizar(equipoId, { vehiculoAsignado: '' });
+  };
+
+  const asignarItemAVehiculo = async (vehiculoId, itemId, cantidad) => {
+    const vehiculo = vehiculosCol.data.find((v) => v.id === vehiculoId);
+    const item = inventarioCol.data.find((i) => i.id === itemId);
+    if (!vehiculo || !item) return;
+    const ok = await inventarioCol.descontarStock(
+      itemId,
+      cantidad,
+      usuario?.nombre || 'Sistema',
+      `Asignado a ${vehiculo.nombre}`
+    );
+    if (!ok) return;
+    const itemsActuales = vehiculo.itemsAsignados || [];
+    const existente = itemsActuales.find((x) => x.itemId === itemId);
+    const nuevosItems = existente
+      ? itemsActuales.map((x) =>
+          x.itemId === itemId
+            ? { ...x, cantidad: (x.cantidad || 0) + cantidad }
+            : x
+        )
+      : [
+          ...itemsActuales,
+          {
+            itemId,
+            cantidad,
+            nombre: item.nombre,
+            categoria: item.categoria,
+            unidad: item.unidad || 'u',
+          },
+        ];
+    await vehiculosCol.actualizar(vehiculoId, { itemsAsignados: nuevosItems });
+    alert('✅ Item asignado');
+  };
+
+  const desasignarItemDeVehiculo = async (vehiculoId, itemId) => {
+    const vehiculo = vehiculosCol.data.find((v) => v.id === vehiculoId);
+    if (!vehiculo) return;
+    const itemAsignado = (vehiculo.itemsAsignados || []).find(
+      (x) => x.itemId === itemId
+    );
+    if (itemAsignado)
+      await inventarioCol.agregarStock(
+        itemId,
+        itemAsignado.cantidad,
+        usuario?.nombre || 'Sistema',
+        `Devuelto de ${vehiculo.nombre}`
+      );
+    await vehiculosCol.actualizar(vehiculoId, {
+      itemsAsignados: (vehiculo.itemsAsignados || []).filter(
+        (x) => x.itemId !== itemId
+      ),
+    });
+  };
+
+  const actualizarCantidadItem = async (vehiculoId, itemId, nuevaCantidad) => {
+    const vehiculo = vehiculosCol.data.find((v) => v.id === vehiculoId);
+    if (!vehiculo) return;
+    await vehiculosCol.actualizar(vehiculoId, {
+      itemsAsignados: (vehiculo.itemsAsignados || []).map((x) =>
+        x.itemId === itemId ? { ...x, cantidad: nuevaCantidad } : x
+      ),
+    });
+  };
+
+  const agregarCompartimiento = async (vehiculoId, nombre) => {
+    const vehiculo = vehiculosCol.data.find((v) => v.id === vehiculoId);
+    if (!vehiculo) return;
+    const nuevoComp = {
+      id: Date.now().toString(),
+      nombre,
+      subcompartimientos: [],
+    };
+    await vehiculosCol.actualizar(vehiculoId, {
+      compartimientos: [...(vehiculo.compartimientos || []), nuevoComp],
+    });
+  };
+
+  const eliminarCompartimiento = async (vehiculoId, compId) => {
+    const vehiculo = vehiculosCol.data.find((v) => v.id === vehiculoId);
+    if (!vehiculo) return;
+    await vehiculosCol.actualizar(vehiculoId, {
+      compartimientos: (vehiculo.compartimientos || []).filter(
+        (c) => c.id !== compId
+      ),
+    });
+  };
+
+  const agregarSubcompartimiento = async (vehiculoId, compId, nombre) => {
+    const vehiculo = vehiculosCol.data.find((v) => v.id === vehiculoId);
+    if (!vehiculo) return;
+    const comps = (vehiculo.compartimientos || []).map((c) =>
+      c.id === compId
+        ? {
+            ...c,
+            subcompartimientos: [
+              ...(c.subcompartimientos || []),
+              { id: Date.now().toString(), nombre, items: [] },
+            ],
+          }
+        : c
+    );
+    await vehiculosCol.actualizar(vehiculoId, { compartimientos: comps });
+  };
+
+  const eliminarSubcompartimiento = async (vehiculoId, compId, subId) => {
+    const vehiculo = vehiculosCol.data.find((v) => v.id === vehiculoId);
+    if (!vehiculo) return;
+    const comps = (vehiculo.compartimientos || []).map((c) =>
+      c.id === compId
+        ? {
+            ...c,
+            subcompartimientos: (c.subcompartimientos || []).filter(
+              (s) => s.id !== subId
+            ),
+          }
+        : c
+    );
+    await vehiculosCol.actualizar(vehiculoId, { compartimientos: comps });
+  };
+
+  const agregarItemASubcompartimiento = async (
+    vehiculoId,
+    compId,
+    subId,
+    itemInventarioId,
+    cantidad
+  ) => {
+    const vehiculo = vehiculosCol.data.find((v) => v.id === vehiculoId);
+    const itemInv = inventarioCol.data.find((i) => i.id === itemInventarioId);
+    if (!vehiculo || !itemInv) return;
+    const comps = (vehiculo.compartimientos || []).map((c) => {
+      if (c.id !== compId) return c;
+      const subs = (c.subcompartimientos || []).map((s) => {
+        if (s.id !== subId) return s;
+        const itemsActuales = s.items || [];
+        const existente = itemsActuales.find(
+          (x) => x.itemId === itemInventarioId
+        );
+        const nuevosItems = existente
+          ? itemsActuales.map((x) =>
+              x.itemId === itemInventarioId
+                ? {
+                    ...x,
+                    cantidadEsperada: (x.cantidadEsperada || 0) + cantidad,
+                  }
+                : x
+            )
+          : [
+              ...itemsActuales,
+              {
+                itemId: itemInventarioId,
+                nombre: itemInv.nombre,
+                categoria: itemInv.categoria,
+                unidad: itemInv.unidad || 'u',
+                cantidadEsperada: cantidad,
+              },
+            ];
+        return { ...s, items: nuevosItems };
+      });
+      return { ...c, subcompartimientos: subs };
+    });
+    await vehiculosCol.actualizar(vehiculoId, { compartimientos: comps });
+  };
+
+  const eliminarItemDeSubcompartimiento = async (
+    vehiculoId,
+    compId,
+    subId,
+    itemId
+  ) => {
+    const vehiculo = vehiculosCol.data.find((v) => v.id === vehiculoId);
+    if (!vehiculo) return;
+    const comps = (vehiculo.compartimientos || []).map((c) => {
+      if (c.id !== compId) return c;
+      const subs = (c.subcompartimientos || []).map((s) => {
+        if (s.id !== subId) return s;
+        return {
+          ...s,
+          items: (s.items || []).filter((x) => x.itemId !== itemId),
+        };
+      });
+      return { ...c, subcompartimientos: subs };
+    });
+    await vehiculosCol.actualizar(vehiculoId, { compartimientos: comps });
+  };
+
+  const actualizarCantidadItemSubcomp = async (
+    vehiculoId,
+    compId,
+    subId,
+    itemId,
+    nuevaCantidad
+  ) => {
+    const vehiculo = vehiculosCol.data.find((v) => v.id === vehiculoId);
+    if (!vehiculo) return;
+    const comps = (vehiculo.compartimientos || []).map((c) => {
+      if (c.id !== compId) return c;
+      const subs = (c.subcompartimientos || []).map((s) => {
+        if (s.id !== subId) return s;
+        return {
+          ...s,
+          items: (s.items || []).map((x) =>
+            x.itemId === itemId ? { ...x, cantidadEsperada: nuevaCantidad } : x
+          ),
+        };
+      });
+      return { ...c, subcompartimientos: subs };
+    });
+    await vehiculosCol.actualizar(vehiculoId, { compartimientos: comps });
+  };
+
+  if (!usuario) return <Login onLogin={handleLogin} />;
+  const loading = vehiculosCol.loading || inventarioCol.loading;
+  if (loading) return <div>Cargando...</div>;
