@@ -1,24 +1,24 @@
-// src/components/common/GeneradorQR.jsx
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import QRCode from 'qrcode.react';
-import { styles } from '../../styles/globalStyles';
+import { styles } from '../../styles/styleGlobal'; // ← ruta corregida
 
 function GeneradorQR({ itemId, itemNombre, tipo }) {
   const [mostrar, setMostrar] = useState(false);
-
-  // Generar URL única para el item (puede ser una ruta interna)
-  const url = `${window.location.origin}/item/${tipo}/${itemId}`;
+  const qrRef = useRef(null);
+  const url = `${window.location.origin}/qr/${tipo}/${itemId}`;
 
   const handlePrint = () => {
+    if (!qrRef.current) return;
+    const canvas = qrRef.current.querySelector('canvas');
+    if (!canvas) return;
+    const imgData = canvas.toDataURL();
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
       <html>
         <head><title>QR ${itemNombre}</title></head>
         <body style="display:flex; justify-content:center; align-items:center; height:100vh; flex-direction:column;">
           <div style="text-align:center;">
-            <img src="${document
-              .getElementById('qr-code-img')
-              ?.toDataURL()}" style="width:200px; height:200px;" />
+            <img src="${imgData}" style="width:200px; height:200px;" />
             <p><strong>${itemNombre}</strong></p>
             <p>${tipo.toUpperCase()} #${itemId.slice(-6)}</p>
           </div>
@@ -29,6 +29,12 @@ function GeneradorQR({ itemId, itemNombre, tipo }) {
     printWindow.print();
   };
 
+  const compartirWhatsApp = () => {
+    const mensaje = `📱 *${itemNombre}*\n🔗 Código QR para escanear:\n${url}`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
   return (
     <>
       <button
@@ -37,8 +43,10 @@ function GeneradorQR({ itemId, itemNombre, tipo }) {
           background: 'none',
           border: 'none',
           cursor: 'pointer',
-          fontSize: 18,
-          padding: '0 4px',
+          fontSize: 20,
+          padding: '4px 8px',
+          borderRadius: 40,
+          transition: 'all 0.2s',
         }}
         title="Generar QR"
       >
@@ -65,33 +73,21 @@ function GeneradorQR({ itemId, itemNombre, tipo }) {
             style={{
               background: 'white',
               padding: 30,
-              borderRadius: 16,
+              borderRadius: 20,
               textAlign: 'center',
+              maxWidth: '90vw',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div id="qr-code-img">
-              <QRCode value={url} size={200} />
+            <div ref={qrRef}>
+              <QRCode value={url} size={220} />
             </div>
-            <p style={{ marginTop: 16, fontWeight: 'bold' }}>{itemNombre}</p>
+            <p style={{ marginTop: 16, fontWeight: 'bold', fontSize: 16 }}>{itemNombre}</p>
             <p style={{ fontSize: 12, color: '#6b7280' }}>{tipo}</p>
-            <div
-              style={{
-                display: 'flex',
-                gap: 10,
-                marginTop: 16,
-                justifyContent: 'center',
-              }}
-            >
-              <button onClick={handlePrint} style={styles.btnPrimary}>
-                🖨️ Imprimir
-              </button>
-              <button
-                onClick={() => setMostrar(false)}
-                style={styles.btnSecondary}
-              >
-                ✖ Cerrar
-              </button>
+            <div style={{ display: 'flex', gap: 12, marginTop: 20, justifyContent: 'center' }}>
+              <button onClick={handlePrint} style={styles.btnPrimary}>🖨️ Imprimir</button>
+              <button onClick={compartirWhatsApp} style={styles.btnSecondary}>📲 WhatsApp</button>
+              <button onClick={() => setMostrar(false)} style={{ ...styles.btnSecondary, background: '#ef4444', color: 'white' }}>✖ Cerrar</button>
             </div>
           </div>
         </div>
