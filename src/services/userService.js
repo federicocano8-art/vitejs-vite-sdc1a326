@@ -1,46 +1,33 @@
-// src/services/userService.js
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '../firebase';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 export const userService = {
-  // Listar todos los usuarios (opcional, para admin)
-  async listUsers() {
-    const listUsersFn = httpsCallable(functions, 'listUsers');
-    const result = await listUsersFn();
-    return result.data;
+  async obtenerUsuarios() {
+    const snapshot = await getDocs(collection(db, 'users'));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
 
-  // Crear usuario (solo puede ser llamado por admin)
-  async createUser({ email, password, displayName, role, activo = true }) {
-    const createUserFn = httpsCallable(functions, 'createUser');
-    const result = await createUserFn({
-      email,
-      password,
-      displayName,
-      role,
-      activo,
+  async actualizarUsuario(uid, updates) {
+    await updateDoc(doc(db, 'users', uid), {
+      ...updates,
+      actualizadoEn: new Date()
     });
-    return result.data;
   },
 
-  // Actualizar usuario (cualquier campo, solo admin)
-  async updateUser(uid, updates) {
-    const updateUserFn = httpsCallable(functions, 'updateUser');
-    const result = await updateUserFn({ uid, updates });
-    return result.data;
+  async eliminarUsuario(uid) {
+    await deleteDoc(doc(db, 'users', uid));
   },
 
-  // Resetear contraseña (envía email de reseteo; puede ser llamado por el mismo usuario o admin)
-  async resetPassword(email) {
-    const resetPasswordFn = httpsCallable(functions, 'resetPassword');
-    const result = await resetPasswordFn({ email });
-    return result.data;
-  },
-
-  // Eliminar usuario (borra Auth + Firestore)
-  async deleteUser(uid) {
-    const deleteUserFn = httpsCallable(functions, 'deleteUser');
-    const result = await deleteUserFn({ uid });
-    return result.data;
-  },
+  async generarCodigoInvitacion(rol, emailDestino, creadoPor) {
+    const codigo = Math.random().toString(36).substring(2, 10).toUpperCase();
+    await addDoc(collection(db, 'invitaciones'), {
+      codigo,
+      rol,
+      usado: false,
+      emailDestino: emailDestino || null,
+      creadoPor,
+      creadoEn: new Date()
+    });
+    return codigo;
+  }
 };
